@@ -1,0 +1,15 @@
+---
+# Connection rate throttling rules
+__hsesa_connection_rate_throttle_rules:
+  - type: ipv4
+    rule: "-p tcp --dport 22 -m state --state NEW -m recent --set"
+    position: 0
+  - type: ipv4
+    rule: "-p tcp --dport 22 -m state --state NEW -m recent --update --seconds 10 --hitcount 10 -j DROP"
+    position: 1
+  - type: ipv6
+    rule: "-p tcp --dport 22 -m state --state NEW -m recent --set"
+    position: 0
+  - type: ipv6
+    rule: "-p tcp --dport 22 -m state --state NEW -m recent --update --seconds 10 --hitcount 10 -j DROP"
+    position: 1

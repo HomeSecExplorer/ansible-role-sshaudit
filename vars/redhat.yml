@@ -1,0 +1,4 @@
+---
+# Variables for RedHat OS family
+__hsesa_sshd_hardening_file: 'opensshserver.config'
+__hsesa_sshd_hardening_path: '/etc/crypto-policies/back-ends/'

@@ -1,0 +1,16 @@
+---
+# State of the ssh-audit package: 'present' or 'absent'
+hsesa_ssh_audit_package_state: 'present'
+
+# Perform ssh-audit (server) before and after hardening (only works if ssh-audit is installed)
+hsesa_ssh_audit_test: true
+
+# SSH server hardening options
+hsesa_ssh_server_hardening: true  # Harden the SSH server
+hsesa_remove_small_dh_moduli: true  # Remove weak Diffie-Hellman moduli (< 3071 bits)
+hsesa_restrict_kcm: true  # Restrict key exchange, cipher, and MAC algorithms
+hsesa_connection_rate_throttle: false  # Enable rate limiting !!!starts firewall service!!!
+hsesa_regenerate_ssh_host_keys: true  # Generate RSA 4096 and ED25519 keys !!!removes all others!!!
+
+# SSH client hardening
+hsesa_harden_client: true  # Harden the SSH client configuration

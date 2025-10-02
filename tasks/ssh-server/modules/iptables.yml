@@ -1,0 +1,43 @@
+---
+- name: Connection rate throttling not applied - DEB
+  ansible.builtin.debug:
+    msg: >
+      netfilter-persistent is not available on this system.
+      Please apply connection rate throttling manually.
+  when:
+    - hsesa_connection_rate_throttle | bool
+    - ansible_os_family | lower == 'debian'
+    - ansible_virtualization_type != 'docker'
+    - "'netfilter-persistent' not in ansible_facts.packages"
+
+- name: Implement connection rate throttling - iptables
+  notify: save iptables
+  when:
+    - hsesa_connection_rate_throttle | bool
+    - ansible_os_family | lower == 'debian'
+    - ansible_virtualization_type != 'docker'
+    - "'netfilter-persistent' in ansible_facts.packages"
+  block:
+    - name: Check if rule exist
+      ansible.builtin.command: >
+        {{ 'ip6tables' if __hsesa_conn_rtr.type == 'ipv6' else 'iptables' }} -C  INPUT {{ __hsesa_conn_rtr.rule }}
+      loop: '{{ __hsesa_connection_rate_throttle_rules }}'
+      loop_control:
+        label: '{{ __hsesa_conn_rtr.type }} {{ __hsesa_conn_rtr.rule }}'
+        loop_var: "__hsesa_conn_rtr"
+        index_var: "__hsesa_rule_idx"
+      register: __hsesa_iptables_rule_exist
+      changed_when: false
+      failed_when: false
+    - name: Implement connection rate throttling - DEB
+      ansible.builtin.command: >
+        {{ 'ip6tables' if __hsesa_conn_rtr.type == 'ipv6' else 'iptables' }} -I INPUT {{ __hsesa_conn_rtr.rule }}
+      loop: '{{ __hsesa_connection_rate_throttle_rules }}'
+      loop_control:
+        label: '{{ __hsesa_conn_rtr.type }} {{ __hsesa_conn_rtr.rule }}'
+        loop_var: "__hsesa_conn_rtr"
+        index_var: "__hsesa_rule_idx"
+      when: >
+        __hsesa_iptables_rule_exist.results[__hsesa_rule_idx].rc != 0
+        and
+        "'Bad rule' in __hsesa_iptables_rule_exist.results[__hsesa_rule_idx].stderr"

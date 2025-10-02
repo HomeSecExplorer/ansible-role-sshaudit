@@ -1,0 +1,17 @@
+---
+- name: Create ssh_config.d directory
+  ansible.builtin.file:
+    path: '/etc/ssh/ssh_config.d'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+
+- name: Harden SSH client
+  ansible.builtin.template:
+    src: "{{ os_identifier }}/client/ssh-audit_hardening.conf"
+    dest: '/etc/ssh/ssh_config.d/ssh-audit_hardening.conf'
+    mode: '0644'
+    owner: 'root'
+    group: 'root'
+  when: hsesa_harden_client | bool

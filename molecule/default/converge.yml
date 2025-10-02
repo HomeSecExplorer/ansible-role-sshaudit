@@ -1,0 +1,50 @@
+---
+- name: Converge
+  hosts: all
+  # become: true
+  pre_tasks:
+    - name: Ensure EPEL is enabled
+      ansible.builtin.dnf:
+        name: epel-release
+        state: present
+      when:
+        - ansible_os_family == "RedHat"
+        - ansible_facts.distribution | lower != "amazon"
+
+    - name: Enable universe repo (Ubuntu only)
+      ansible.builtin.command: add-apt-repository -y universe
+      when: ansible_distribution == "Ubuntu"
+      become: true
+      changed_when: false
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when:
+        - ansible_os_family == 'Debian'
+        - ansible_facts.distribution_version != '20.04'
+
+    - name: Installing packages
+      ansible.builtin.package:
+        state: 'present'
+        name:
+          - "{{ 'openssh' if ansible_os_family | lower == 'redhat' else 'ssh' }}"
+          - 'openssh-server'
+
+    - name: Installing packages Amazon Linux - ssh-keyscan
+      ansible.builtin.package:
+        state: 'present'
+        name: 'openssh-clients'
+      when:
+        - ansible_os_family == "RedHat"
+
+    - name: Start ssh service
+      ansible.builtin.service:
+        name: "{{ 'sshd' if ansible_os_family | lower == 'redhat' else 'ssh' }}"
+        state: 'started'
+
+  tasks:
+    - name: Include role
+      ansible.builtin.include_role:
+        name: ../../../.

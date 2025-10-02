@@ -1,0 +1,45 @@
+---
+- name: Verify SSH server is hardened
+  hosts: all
+  # become: true
+  tasks:
+    - name: Ensure SSH service is running
+      ansible.builtin.service:
+        name: 'sshd'
+        state: 'started'
+        enabled: true
+
+    - name: Get local SSH public keys
+      ansible.builtin.command: awk '{print $2}' /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub
+      register: local_ssh_keys
+      changed_when: false
+
+    - name: Get offered SSH keys via ssh-keyscan
+      ansible.builtin.shell: ssh-keyscan -4 -T 5 -t ed25519,rsa 127.0.0.1 | awk '{print $3}'
+      register: scanned_ssh_keys
+      changed_when: false
+      failed_when: scanned_ssh_keys.rc != 0 and scanned_ssh_keys.rc != 1
+
+    - name: Assert that offered keys match local keys
+      ansible.builtin.assert:
+        that: >-
+          (
+            scanned_ssh_keys.stdout_lines
+            | reject('search', '^SSH-')
+            | map('trim')
+            | sort
+          ) ==
+          (
+            local_ssh_keys.stdout_lines
+            | map('trim')
+            | sort
+          )
+        fail_msg: "SSH daemon is not offering the correct host keys!"
+        success_msg: "SSH daemon offers all correct host keys."
+
+    - name: Check for small moduli
+      ansible.builtin.shell: awk '$5 < 3071' /etc/ssh/moduli
+      register: moduli_check
+      changed_when: false
+      failed_when: moduli_check.stdout != ""
+      when: inventory_hostname != "debian13"

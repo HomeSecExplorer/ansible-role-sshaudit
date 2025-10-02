@@ -1,0 +1,11 @@
+---
+- name: Implement connection rate throttling - firewalld
+  ansible.builtin.command: >
+    firewall-cmd --permanent --direct --add-rule {{ __hsesa_conn_rtr.type }} filter INPUT {{ __hsesa_conn_rtr.position }} {{ __hsesa_conn_rtr.rule }}
+  loop: '{{ __hsesa_connection_rate_throttle_rules }}'
+  loop_control:
+    label: '{{ __hsesa_conn_rtr.type }} {{ __hsesa_conn_rtr.rule }}'
+    loop_var: "__hsesa_conn_rtr"
+  register: __hsesa_firewalld_rule_add
+  changed_when: "'ALREADY_ENABLED' not in __hsesa_firewalld_rule_add.stderr"
+  notify: reload firewalld

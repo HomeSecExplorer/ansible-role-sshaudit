@@ -1,0 +1,9 @@
+skip_list:
+  - 'yaml'
+  - 'risky-shell-pipe'
+  - 'role-name'
+  - 'name[casing]'
+  - 'no-changed-when'
+  - 'command-instead-of-module'
+  - 'command-instead-of-shell'
+  - 'schema[meta]'

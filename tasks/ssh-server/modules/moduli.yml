@@ -1,0 +1,25 @@
+---
+
+- name: Remove small Diffie-Hellman moduli
+  notify: restart sshd
+  block:
+    - name: Read the moduli file
+      ansible.builtin.slurp:
+        src: '/etc/ssh/moduli'
+      register: __hsesa_dh_moduli_data
+    - name: Decode and split lines
+      ansible.builtin.set_fact:
+        dh_moduli_lines: "{{ __hsesa_dh_moduli_data['content'] | b64decode | split('\n') }}"
+    - name: Filter strong moduli lines
+      ansible.builtin.set_fact:
+        dh_strong_moduli_lines: >-
+          {{ dh_moduli_lines | selectattr('split', 'defined') | select(
+            'match', '^\d+\s+\d+\s+\d+\s+\d+\s+([3-9]\d{3,}|[4-9]\d{3,})'
+          ) | list }}
+    - name: Write filtered moduli to file
+      ansible.builtin.copy:
+        dest: '/etc/ssh/moduli'
+        content: "{{ dh_strong_moduli_lines | join('\n') + '\n' }}"
+        mode: '0644'
+        owner: 'root'
+        group: 'root'

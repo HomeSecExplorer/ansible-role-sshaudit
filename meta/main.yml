@@ -1,0 +1,37 @@
+---
+galaxy_info:
+  author: HomeSec Explorer
+  description: >
+    Ansible role to perform SSH hardening according to ssh-audit recommendations.
+    Based on hardening recommendations from https://github.com/jtesta/ssh-audit.
+  role_name: sshaudit
+  namespace: HomeSecExplorer
+  license: MIT
+  min_ansible_version: '2.13'
+
+  platforms:
+    - name: Debian
+      versions:
+        - trixie
+        - bookworm
+        - bullseye
+    - name: Ubuntu
+      versions:
+        - noble
+        - jammy
+    - name: Rocky
+      versions:
+        - all
+    - name: Amazon Linux
+      versions:
+        - all
+
+  galaxy_tags:
+    - ssh
+    - hardening
+    - security
+    - sshaudit
+    - sshserver
+    - securitytools
+
+dependencies: []

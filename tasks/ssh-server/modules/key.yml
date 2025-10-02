@@ -1,0 +1,84 @@
+---
+
+- name: Generate ED25519 and RSA keys
+  notify: restart sshd
+  block:
+    - name: Find unsecure SSH host keys
+      ansible.builtin.find:
+        paths: '/etc/ssh'
+        patterns: 'ssh_host_*'
+        use_regex: true
+        excludes:
+          - '^ssh_host_ed25519.*'
+          - '^ssh_host_rsa.*'
+        file_type: file
+      register: __hsesa_ssh_host_key_files
+    - name: Remove unwanted SSH host keys
+      ansible.builtin.file:
+        path: '{{ __hsesa_del_key.path }}'
+        state: absent
+      loop: '{{ __hsesa_ssh_host_key_files.files }}'
+      loop_control:
+        loop_var: "__hsesa_del_key"
+    - name: Check RSA key
+      ansible.builtin.shell: >
+        ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub | awk '$1 >= 4096'
+      changed_when: false
+      failed_when: false
+      register: __hsesa_ssh_rsa_host_key
+    - name: Remove small RSA key
+      ansible.builtin.file:
+        path: '/etc/ssh/ssh_host_rsa_key{{ __hsesa_key_ext }}'
+        state: 'absent'
+      loop:
+        - ''
+        - '.pub'
+      loop_control:
+        loop_var: "__hsesa_key_ext"
+      when: '__hsesa_ssh_rsa_host_key.stdout_lines | length == 0'
+    - name: Generate SSH host keys
+      ansible.builtin.command: >
+        ssh-keygen -t {{ __hsesa_host_key.type }} {{ __hsesa_host_key.bits | default('') }} -f /etc/ssh/{{ __hsesa_host_key.filename }} -N ""
+      args:
+        creates: '/etc/ssh/{{ __hsesa_host_key.filename }}'
+      loop:
+        - {type: 'rsa', bits: '-b 4096', filename: 'ssh_host_rsa_key'}
+        - {type: 'ed25519', filename: 'ssh_host_ed25519_key'}
+      loop_control:
+        loop_var: "__hsesa_host_key"
+    - name: Set permissions on SSH host keys
+      ansible.builtin.file:
+        path: '/etc/ssh/{{ __hsesa_host_key_perm.filename }}'
+        owner: 'root'
+        group: 'root'
+        mode: '0600'
+      loop:
+        - {filename: 'ssh_host_rsa_key'}
+        - {filename: 'ssh_host_ed25519_key'}
+      loop_control:
+        loop_var: "__hsesa_host_key_perm"
+    - name: Ensure sshd_config contains correct HostKey entries
+      ansible.builtin.lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: 'present'
+        line: '{{ __hsesa_host_key_conf }}'
+      loop:
+        - 'HostKey /etc/ssh/ssh_host_ed25519_key'
+        - 'HostKey /etc/ssh/ssh_host_rsa_key'
+      loop_control:
+        loop_var: "__hsesa_host_key_conf"
+      when:
+        - os_identifier != 'ubuntu-24.04'
+
+- name: Check if system has autogeneration of SSH host keys
+  ansible.builtin.stat:
+    path: '/usr/lib/systemd/system/sshd-keygen.target'
+  register: __hsesa_sshd_keygen_target
+
+- name: Comment out unwanted SSH host key autogeneration lines
+  ansible.builtin.replace:
+    path: '/usr/lib/systemd/system/sshd-keygen.target'
+    regexp: '^Wants=sshd-keygen@(?!rsa|ed25519)\S+\.service$'
+    replace: '# \g<0>'
+  when: __hsesa_sshd_keygen_target.stat.exists
+  notify: reload daemon

@@ -1,0 +1,23 @@
+---
+- name: Implement connection rate throttling
+  ansible.builtin.include_tasks:
+    file: 'ssh-server/modules/firewalld.yml'
+  when:
+    - hsesa_connection_rate_throttle | bool
+    - ansible_os_family | lower == 'redhat'
+    - ansible_virtualization_type != 'docker'
+
+- name: Remove small Diffie-Hellman moduli
+  ansible.builtin.include_tasks:
+    file: 'ssh-server/modules/moduli.yml'
+  when: hsesa_remove_small_dh_moduli | bool
+
+- name: Restrict supported key exchange, cipher, and MAC algorithms
+  ansible.builtin.include_tasks:
+    file: 'ssh-server/modules/kcm.yml'
+  when: hsesa_restrict_kcm | bool
+
+- name: Generate ED25519 and RSA keys
+  ansible.builtin.include_tasks:
+    file: 'ssh-server/modules/key.yml'
+  when: hsesa_regenerate_ssh_host_keys | bool

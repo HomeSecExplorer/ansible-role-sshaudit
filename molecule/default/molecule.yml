@@ -1,0 +1,24 @@
+---
+role_name_check: 1
+dependency:
+  name: galaxy
+  options:
+    ignore-errors: true
+
+driver:
+  name: docker
+
+platforms:
+  - name: ${MOLECULE_DISTRO:-debian12}
+    image: geerlingguy/docker-${MOLECULE_DISTRO:-debian12}-ansible
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+provisioner:
+  name: ansible
+  playbooks:
+    converge: ${MOLECULE_PLAYBOOK:-converge.yml}

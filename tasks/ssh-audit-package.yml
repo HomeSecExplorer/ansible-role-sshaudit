@@ -1,0 +1,26 @@
+---
+- name: Installing/Removing ssh-audit - DEB
+  ansible.builtin.package:
+    name: 'ssh-audit'
+    state: '{{ hsesa_ssh_audit_package_state }}'
+  when: ansible_os_family | lower == 'debian'
+
+- name: Installing/Removing ssh-audit - Rocky
+  ansible.builtin.package:
+    name: 'ssh-audit'
+    state: '{{ hsesa_ssh_audit_package_state }}'
+  when:
+    - ansible_facts.distribution | lower == "rocky"
+    - "'epel-release' in ansible_facts.packages"
+
+- name: Rocky EPEL missing
+  ansible.builtin.debug:
+    msg: ssh-audit will not be installed or removed, epel-release is missing.
+  when:
+    - ansible_facts.distribution | lower == "rocky"
+    - "'epel-release' not in ansible_facts.packages"
+
+- name: Amazon Linux
+  ansible.builtin.debug:
+    msg: ssh-audit will not be installed or removed on Amazon Linux.
+  when: ansible_facts.distribution | lower == "amazon"

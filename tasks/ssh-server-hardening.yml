@@ -1,0 +1,4 @@
+---
+- name: Harden SSH server
+  ansible.builtin.include_tasks:
+    file: 'ssh-server/{{ os_identifier }}.yml'

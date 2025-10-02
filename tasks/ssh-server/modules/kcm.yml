@@ -1,0 +1,9 @@
+---
+- name: Restrict supported key exchange, cipher, and MAC algorithms
+  ansible.builtin.template:
+    src: "{{ os_identifier }}/server/{{ __hsesa_sshd_hardening_file }}"
+    dest: '{{ __hsesa_sshd_hardening_path }}{{ __hsesa_sshd_hardening_file }}'
+    mode: '0644'
+    owner: 'root'
+    group: 'root'
+  notify: restart sshd

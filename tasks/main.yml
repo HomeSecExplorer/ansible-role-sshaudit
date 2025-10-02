@@ -1,0 +1,180 @@
+---
+- name: Construct simplified OS identifier
+  ansible.builtin.set_fact:
+    os_identifier: "{{ ansible_facts.distribution | lower }}-{{ ansible_facts.distribution_version if ansible_facts.distribution | lower == 'ubuntu' else ansible_facts.distribution_major_version }}"
+  tags:
+    - always
+
+- name: Check OS version and family
+  ansible.builtin.assert:
+    that:
+      - os_identifier in [
+          "debian-11",
+          "debian-12",
+          "debian-13",
+          "ubuntu-22.04",
+          "ubuntu-24.04",
+          "rocky-9",
+          "amazon-2023"
+        ]
+    fail_msg: >-
+      This role can only be run against supported OSs.
+      {{ os_identifier }} is not supported.
+    success_msg: >-
+      This role is running against a supported OS: {{ os_identifier }}
+  tags:
+    - always
+
+- name: Load main vars
+  ansible.builtin.include_vars: '../vars/main.yml'
+  tags:
+    - always
+
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_os_family | lower }}.yml"
+      paths:
+        - '../vars'
+  tags:
+    - always
+
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  tags:
+    - always
+
+- name: Install or remove ssh-audit tool
+  ansible.builtin.include_tasks:
+    file: 'ssh-audit-package.yml'
+    apply:
+      tags:
+        - install
+        - remove
+  tags:
+    - install
+    - remove
+
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  when: hsesa_ssh_audit_test | bool
+  tags:
+    - always
+
+- name: Perform ssh-audit before hardening
+  ansible.builtin.command: ssh-audit localhost
+  changed_when: false
+  failed_when: false
+  register: __hsesa_ssh_audit_start
+  when:
+    - hsesa_ssh_audit_test | bool
+    - "'ssh-audit' in ansible_facts.packages"
+  tags:
+    - server
+    - harden
+
+- name: Harden SSH server
+  ansible.builtin.include_tasks:
+    file: 'ssh-server-hardening.yml'
+    apply:
+      tags:
+        - server
+        - harden
+  when: hsesa_ssh_server_hardening | bool
+  tags:
+    - server
+    - harden
+
+- name: Harden SSH client
+  ansible.builtin.include_tasks:
+    file: 'ssh-client-hardening.yml'
+    apply:
+      tags:
+        - client
+        - harden
+  when:
+    - hsesa_harden_client | bool
+    - os_identifier != 'debian-11'
+  tags:
+    - client
+    - harden
+
+- name: Perform ssh-audit after hardening
+  ansible.builtin.command: ssh-audit localhost
+  changed_when: false
+  failed_when: false
+  register: __hsesa_ssh_audit_end
+  when:
+    - hsesa_ssh_audit_test | bool
+    - "'ssh-audit' in ansible_facts.packages"
+  tags:
+    - server
+    - harden
+
+- name: Results ssh-audit before and after hardening
+  ansible.builtin.debug:
+    msg: '{{ __hsesa_sshaudit_out }}'
+  loop:
+    - 'Before hardening:'
+    - '###########################################'
+    - '{{ __hsesa_ssh_audit_start.stdout_lines }}'
+    - '###########################################'
+    - ''
+    - 'After hardening:'
+    - '###########################################'
+    - '{{ __hsesa_ssh_audit_end.stdout_lines }}'
+    - '###########################################'
+  loop_control:
+    loop_var: "__hsesa_sshaudit_out"
+  when:
+    - hsesa_ssh_audit_test | bool
+    - "'ssh-audit' in ansible_facts.packages"
+  tags:
+    - server
+    - harden
+
+- name: Harden SSH client Debian 11
+  ansible.builtin.debug:
+    msg: >
+      Client hardening is not supported for {{ ansible_facts.distribution }} {{ ansible_facts.distribution_major_version }}
+  when:
+    - hsesa_harden_client | bool
+    - os_identifier == 'debian-11'
+  tags:
+    - client
+    - harden
+
+- name: Connection rate throttling not applied - DEB
+  ansible.builtin.debug:
+    msg: >
+      netfilter-persistent is not available on this system.
+      Please apply connection rate throttling manually.
+  when:
+    - hsesa_connection_rate_throttle | bool
+    - ansible_os_family | lower == 'debian'
+    - ansible_virtualization_type != 'docker'
+    - "'netfilter-persistent' not in ansible_facts.packages"
+    - os_identifier != 'debian-13'
+
+- name: Note OpenSSH Bug
+  ansible.builtin.debug:
+    msg: >
+      Note: Because of a bug in OpenSSH, 2048-bit DH moduli will still be used in some limited circumstances.
+      Only a maximum score of 95% is possible.
+      https://bugzilla.mindrot.org/show_bug.cgi?id=2793
+  when: ansible_facts.distribution | lower == 'ubuntu'
+  tags:
+    - server
+    - harden
+
+- name: Further hardening
+  ansible.builtin.debug:
+    msg: >
+      Remember that this applies only basic SSH security measures.
+      For comprehensive ssh and system hardening, refer to OS-specific guidelines like the CIS Benchmarks or DISA STIGs.
+  tags:
+    - always

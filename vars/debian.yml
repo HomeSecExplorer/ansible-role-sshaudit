@@ -1,0 +1,4 @@
+---
+# Variables for Debian OS family
+__hsesa_sshd_hardening_file: 'ssh-audit_hardening.conf'
+__hsesa_sshd_hardening_path: '/etc/ssh/sshd_config.d/'
